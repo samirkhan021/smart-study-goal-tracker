@@ -6,6 +6,8 @@ import datetime
 import random
 import matplotlib.pyplot as plt
 import os
+from fpdf import FPDF
+import time
 
 # ---------------------- CONFIG ----------------------
 st.set_page_config(page_title="Smart Study Goal Tracker", layout="wide")
@@ -17,14 +19,24 @@ if "progress" not in st.session_state:
     st.session_state.progress = {}
 if "streak" not in st.session_state:
     st.session_state.streak = 0
+if "pomodoro" not in st.session_state:
+    st.session_state.pomodoro = {"active": False, "start_time": None, "mode": "Focus"}
 
-# ---------------------- MOTIVATIONAL QUOTES ----------------------
+# ---------------------- MOTIVATIONAL QUOTES & TIPS ----------------------
 quotes = [
     "Believe in yourself! You can do it!",
     "Every day is a chance to improve.",
     "Small progress is still progress.",
     "You are stronger than you think.",
     "Stay focused and never give up."
+]
+
+study_tips = [
+    "Break subjects into small chunks.",
+    "Teach others what you’ve learned.",
+    "Use active recall instead of passive reading.",
+    "Use spaced repetition techniques.",
+    "Review your notes every day."
 ]
 
 # ---------------------- FUNCTIONS ----------------------
@@ -50,13 +62,39 @@ def get_completion_rate():
 def get_random_quote():
     return random.choice(quotes)
 
+def get_study_tip():
+    return random.choice(study_tips)
+
+def export_pdf():
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt="Smart Study Goal Tracker Report", ln=True, align='C')
+    pdf.ln(10)
+    for goal in st.session_state.goals:
+        line = f"Subject: {goal['Subject']} | Task: {goal['Task']} | Deadline: {goal['Deadline']} | Status: {goal['Status']}"
+        pdf.multi_cell(0, 10, txt=line)
+    pdf.output("study_goals_report.pdf")
+    return "study_goals_report.pdf"
+
+def start_pomodoro():
+    st.session_state.pomodoro["active"] = True
+    st.session_state.pomodoro["start_time"] = time.time()
+    st.session_state.pomodoro["mode"] = "Focus"
+
+def reset_pomodoro():
+    st.session_state.pomodoro["active"] = False
+    st.session_state.pomodoro["start_time"] = None
+    st.session_state.pomodoro["mode"] = "Focus"
+
 # ---------------------- UI ----------------------
 st.title("📚 Smart Study Goal Tracker")
 st.markdown("### Anuradha College of Engineering and Technology")
 st.markdown("**Email:** your-email@example.com")
 
 quote = get_random_quote()
-st.info(f"💡 {quote}")
+tip = get_study_tip()
+st.info(f"💡 {quote}\n\n🧠 Tip: {tip}")
 
 with st.sidebar:
     st.header("➕ Add Study Goal")
@@ -69,6 +107,20 @@ with st.sidebar:
             st.success("Goal Added!")
         else:
             st.error("Please fill all fields")
+
+    st.header("⏱️ Pomodoro Timer")
+    if not st.session_state.pomodoro["active"]:
+        if st.button("Start Pomodoro (25 min)"):
+            start_pomodoro()
+    else:
+        elapsed = int(time.time() - st.session_state.pomodoro["start_time"])
+        remaining = 1500 - elapsed  # 25 minutes
+        if remaining > 0:
+            mins, secs = divmod(remaining, 60)
+            st.warning(f"Focus Time Remaining: {mins:02d}:{secs:02d}")
+        else:
+            st.success("🎉 Pomodoro Completed! Take a 5 min break.")
+            reset_pomodoro()
 
 # ---------------------- MAIN SECTION ----------------------
 
@@ -103,9 +155,16 @@ st.subheader("🔥 Streak Tracker")
 st.session_state.streak += 1  # simulate daily usage
 st.metric("Current Streak (Days)", st.session_state.streak)
 
-# ---------------------- EXPORT PROGRESS ----------------------
-if st.button("📤 Export Progress as CSV"):
+# ---------------------- EXPORT OPTIONS ----------------------
+st.subheader("📤 Export Options")
+
+if st.button("Export Goals as CSV"):
     df = pd.DataFrame(st.session_state.goals)
     df.to_csv("progress_report.csv", index=False)
     with open("progress_report.csv", "rb") as f:
         st.download_button("Download CSV", f, file_name="progress_report.csv")
+
+if st.button("Export Goals as PDF"):
+    pdf_path = export_pdf()
+    with open(pdf_path, "rb") as f:
+        st.download_button("Download PDF", f, file_name="study_goals_report.pdf")
